@@ -72,14 +72,14 @@ echo "Running set up..."
 
 echo "" > .env
 
-check_python
+# check_python
 if [ $? -ne 0 ]; then
     return 1
 fi
 
 setup_hf
 setup_together
-setup_venv
-install_requirements
+# setup_venv
+# install_requirements
 
 echo "All set up!"
