@@ -17,5 +17,8 @@ def construct_model_base(model_path: str) -> ModelBase:
     elif 'yi' in model_path.lower():
         from pipeline.model_utils.yi_model import YiModel
         return YiModel(model_path)
+    elif 'ambersafe' in model_path.lower():
+        from pipeline.model_utils.llama2_model import Llama2Model
+        return Llama2Model(model_path)
     else:
         raise ValueError(f"Unknown model family: {model_path}")

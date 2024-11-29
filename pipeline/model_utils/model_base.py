@@ -92,3 +92,19 @@ class ModelBase(ABC):
                     })
 
         return completions
+
+    def answer_prompt(self, prompt, fwd_pre_hooks=[], fwd_hooks=[], max_new_tokens=512):
+        generation_config = GenerationConfig(max_new_tokens=max_new_tokens, do_sample=False)
+        generation_config.pad_token_id = self.tokenizer.pad_token_id
+
+        tokenized_instructions = self.tokenize_instructions_fn(instructions=[prompt])
+        with add_hooks(module_forward_pre_hooks=fwd_pre_hooks, module_forward_hooks=fwd_hooks):
+            generation_toks = self.model.generate(
+                input_ids=tokenized_instructions.input_ids.to(self.model.device),
+                attention_mask=tokenized_instructions.attention_mask.to(self.model.device),
+                generation_config=generation_config,
+            )
+
+            generation_toks = generation_toks[:, tokenized_instructions.input_ids.shape[-1]:]
+            for generation in generation_toks:
+                return self.tokenizer.decode(generation, skip_special_tokens=True).strip()

@@ -10,9 +10,6 @@ from vllm.distributed.parallel_state import destroy_model_parallel
 import torch
 import litellm
 import time
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # based on https://github.com/JailbreakBench/jailbreakbench/blob/4dbcc097739dd684fbf789cc3d4f97372bd72851/src/jailbreakbench/classifier.py
 # augmented with some additional prefixes
@@ -130,7 +127,7 @@ def llamaguard2_judge_fn(prompts: List[str], responses: List[str]) -> List[int]:
 
     classifier = LlamaGuard2Classifier(os.environ["TOGETHER_API_KEY"])
 
-    batch_size = 10  # Adjust this value based on the API's rate limits
+    batch_size = 30  # Adjust this value based on the API's rate limits
     delay = 1  # Delay in seconds between batches
 
     classifications = []
