@@ -22,16 +22,24 @@ def batch_iterator_chat_completions(dataset_instructions, dataset_outputs, token
 
         # also mask out all tokens before the eoi token region
         for b in range(inputs["input_ids"].shape[0]):
+            eoi_found = False
+            seq_len = inputs["input_ids"].shape[1]
             for i in range(inputs["input_ids"].shape[1]):
+                if i + eoi_toks.shape[0] <= seq_len:
+                    if torch.all(inputs["input_ids"][b, i:i+eoi_toks.shape[0]] == eoi_toks):
+                        loss_mask[b, :i + eoi_toks.shape[0] - 1] = 0
+                        eoi_found = True
+                        break
 
-                if torch.all(inputs["input_ids"][b, i:i+eoi_toks.shape[0]] == eoi_toks):
-                    loss_mask[b, :i + eoi_toks.shape[0] - 1] = 0
+                    # normally the above condition works. but the tokenization instruction tokens in Llama2 is not clean, and so we need this hack
+                    if eoi_toks.shape[0] == 6 and (inputs["input_ids"][b, i:i+eoi_toks.shape[0]] == eoi_toks).sum().item() >= eoi_toks.shape[0] - 2:
+                        loss_mask[b, :i + eoi_toks.shape[0] - 1] = 0
+                        eoi_found = True
+                        break
+                else:
                     break
-
-                # normally the above condition works. but the tokenization instruction tokens in Llama2 is not clean, and so we need this hack
-                if eoi_toks.shape[0] == 6 and (inputs["input_ids"][b, i:i+eoi_toks.shape[0]] == eoi_toks).sum().item() >= eoi_toks.shape[0] - 2:
-                    loss_mask[b, :i + eoi_toks.shape[0] - 1] = 0
-                    break
+        if not eoi_found:
+            loss_mask[b, :] = 0
 
         yield inputs, loss_mask 
 

@@ -28,11 +28,14 @@ def refusal_score(
     refusal_probs = probs[:, refusal_toks].sum(dim=-1)
 
     nonrefusal_probs = torch.ones_like(refusal_probs) - refusal_probs
-    return torch.log(refusal_probs + epsilon) - torch.log(nonrefusal_probs + epsilon)
+    refusal = torch.log(refusal_probs + epsilon) - torch.log(nonrefusal_probs + epsilon)
+    # print(torch.min(probs))
+    # print(refusal)
+    return refusal
 
 def get_refusal_scores(model, instructions, tokenize_instructions_fn, refusal_toks, fwd_pre_hooks=[], fwd_hooks=[], batch_size=32):
     refusal_score_fn = functools.partial(refusal_score, refusal_toks=refusal_toks)
-
+    # print(len(instructions))
     refusal_scores = torch.zeros(len(instructions), device=model.device)
 
     for i in range(0, len(instructions), batch_size):
@@ -45,7 +48,7 @@ def get_refusal_scores(model, instructions, tokenize_instructions_fn, refusal_to
             ).logits
 
         refusal_scores[i:i+batch_size] = refusal_score_fn(logits=logits)
-
+        # print(refusal_scores)
     return refusal_scores
 
 def get_last_position_logits(model, tokenizer, instructions, tokenize_instructions_fn, fwd_pre_hooks=[], fwd_hooks=[], batch_size=32) -> Float[Tensor, "n_instructions d_vocab"]:
@@ -120,7 +123,7 @@ def select_direction(
     harmless_instructions,
     candidate_directions: Float[Tensor, 'n_pos n_layer d_model'],
     artifact_dir,
-    kl_threshold=0.14, # directions larger KL score are filtered out
+    kl_threshold=0.2, # directions larger KL score are filtered out
     induce_refusal_threshold=0.0, # directions with a lower inducing refusal score are filtered out
     prune_layer_percentage=0.17, # discard the directions extracted from the last 20% of the model
     batch_size=32
@@ -176,6 +179,7 @@ def select_direction(
             fwd_hooks += [(model_base.model_mlp_modules[layer], get_direction_ablation_output_hook(direction=ablation_dir)) for layer in range(model_base.model.config.num_hidden_layers)]
 
             refusal_scores = get_refusal_scores(model_base.model, harmful_instructions, model_base.tokenize_instructions_fn, model_base.refusal_toks, fwd_pre_hooks=fwd_pre_hooks, fwd_hooks=fwd_hooks, batch_size=batch_size)
+            # print(refusal_scores)
             ablation_refusal_scores[source_pos, source_layer] = refusal_scores.mean().item()
 
     for source_pos in range(-n_pos, 0):

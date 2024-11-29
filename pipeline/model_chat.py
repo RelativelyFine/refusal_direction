@@ -24,7 +24,7 @@ def get_ablation_direction(cfg):
     raise FileNotFoundError()
     
 def chat(model_path, vectors_ablated):
-    """Test out chatting with the "goods" vs. "evil" vs. "SUPER evil" model. """
+    """Test out prompting with the "goods" vs. "evil" vs. "SUPER evil" model. """
 
     # Load Model
     model_alias = os.path.basename(model_path)
@@ -32,6 +32,7 @@ def chat(model_path, vectors_ablated):
     model_base = construct_model_base(cfg.model_path)
     directions = get_ablation_direction(cfg)
 
+    # Get ablation directions.
     ablation_fwd_pre_hooks = []
     ablation_fwd_hooks = []
     for direction in directions:
@@ -52,7 +53,6 @@ def chat(model_path, vectors_ablated):
     # Chat with model.
     prompt = input("\nYou: ")
     while prompt:
-        # Get ablation
         print("\nGood Bot (:D):", model_base.answer_prompt(prompt), max_new_tokens=1024) # Non ablated response.
         print("\nEvil Bot (>:O):", model_base.answer_prompt(prompt, fwd_pre_hooks=ablation_fwd_pre_hooks1, fwd_hooks=ablation_fwd_hooks1), max_new_tokens=1024) # Singly ablated response.
         print("\nSUPER Evil Bot (>:X):", model_base.answer_prompt(prompt, fwd_pre_hooks=sum_ablation_fwd_pre_hooks, fwd_hooks=sum_ablation_fwd_hooks), max_new_tokens=1024) # Fully ablated response.

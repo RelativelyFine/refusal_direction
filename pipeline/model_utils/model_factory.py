@@ -20,5 +20,8 @@ def construct_model_base(model_path: str) -> ModelBase:
     elif 'ambersafe' in model_path.lower():
         from pipeline.model_utils.llama2_model import Llama2Model
         return Llama2Model(model_path)
+    elif 'phi-3.5' in model_path.lower():
+        from pipeline.model_utils.phi3_model import Phi35Model
+        return Phi35Model(model_path)
     else:
         raise ValueError(f"Unknown model family: {model_path}")
