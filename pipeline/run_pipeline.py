@@ -361,12 +361,14 @@ def run_pipeline(model_path):
     
     direction_idxs_combinations.insert(0, (0,))
 
+    direction_idxs_combinations = [(0,)]
+
     for ranked_direction_idxs in direction_idxs_combinations:
         # Skip if the folder exists
-        folder_path = os.path.join(cfg.artifact_path(), "-".join(map(str, ranked_direction_idxs)))
-        if os.path.exists(folder_path):
-            print(f"Skipping directions ranked_direction_idxs, folder already exists.")
-            continue
+        # folder_path = os.path.join(cfg.artifact_path(), "-".join(map(str, ranked_direction_idxs)))
+        # if os.path.exists(folder_path):
+        #     print(f"Skipping directions ranked_direction_idxs, folder already exists.")
+        #     continue
 
         print(f"Evaluating directions #{ranked_direction_idxs}")
         cfg.vectors_ablated = "-".join(map(str, ranked_direction_idxs))
@@ -388,19 +390,21 @@ def run_pipeline(model_path):
         # 3a. Generate and save completions on harmful evaluation datasets
         for dataset_name in cfg.evaluation_datasets:
             # generate_and_save_completions_for_dataset(cfg, model_base, baseline_fwd_pre_hooks, baseline_fwd_hooks, 'baseline', dataset_name)
-            generate_and_save_completions_for_dataset(cfg, model_base, ablation_fwd_pre_hooks, ablation_fwd_hooks, 'ablation', dataset_name)
+            # generate_and_save_completions_for_dataset(cfg, model_base, ablation_fwd_pre_hooks, ablation_fwd_hooks, 'ablation', dataset_name)
             # generate_and_save_completions_for_dataset(cfg, model_base, actadd_fwd_pre_hooks, actadd_fwd_hooks, 'actadd', dataset_name)
+            pass
 
         # 3b. Evaluate completions and save results on harmful evaluation datasets
         for dataset_name in cfg.evaluation_datasets:
             # evaluate_completions_and_save_results_for_dataset(cfg, 'baseline', dataset_name, eval_methodologies=cfg.jailbreak_eval_methodologies)
-            evaluate_completions_and_save_results_for_dataset(cfg, 'ablation', dataset_name, eval_methodologies=cfg.jailbreak_eval_methodologies)
+            # evaluate_completions_and_save_results_for_dataset(cfg, 'ablation', dataset_name, eval_methodologies=cfg.jailbreak_eval_methodologies)
             # evaluate_completions_and_save_results_for_dataset(cfg, 'actadd', dataset_name, eval_methodologies=cfg.jailbreak_eval_methodologies)
+            pass
         
         # 4a. Generate and save completions on harmless evaluation dataset
-        # harmless_test = random.sample(load_dataset_split(harmtype='harmless', split='test'), cfg.n_test)
+        harmless_test = random.sample(load_dataset_split(harmtype='harmless', split='test'), cfg.n_test)
 
-        # generate_and_save_completions_for_dataset(cfg, model_base, baseline_fwd_pre_hooks, baseline_fwd_hooks, 'baseline', 'harmless', dataset=harmless_test)
+        generate_and_save_completions_for_dataset(cfg, model_base, baseline_fwd_pre_hooks, baseline_fwd_hooks, 'baseline', 'harmless', dataset=harmless_test)
         
         # actadd_refusal_pre_hooks, actadd_refusal_hooks = [(model_base.model_block_modules[layer], get_activation_addition_input_pre_hook(vector=direction, coeff=+1.0))], []
         # generate_and_save_completions_for_dataset(cfg, model_base, actadd_refusal_pre_hooks, actadd_refusal_hooks, 'actadd', 'harmless', dataset=harmless_test)
@@ -410,8 +414,8 @@ def run_pipeline(model_path):
         # evaluate_completions_and_save_results_for_dataset(cfg, 'actadd', 'harmless', eval_methodologies=cfg.refusal_eval_methodologies)
 
         # 5. Evaluate loss on harmless datasets
-        # evaluate_loss_for_datasets(cfg, model_base, baseline_fwd_pre_hooks, baseline_fwd_hooks, 'baseline')
-        # evaluate_loss_for_datasets(cfg, model_base, ablation_fwd_pre_hooks, ablation_fwd_hooks, 'ablation')
+        evaluate_loss_for_datasets(cfg, model_base, baseline_fwd_pre_hooks, baseline_fwd_hooks, 'baseline')
+        evaluate_loss_for_datasets(cfg, model_base, ablation_fwd_pre_hooks, ablation_fwd_hooks, 'ablation')
         # evaluate_loss_for_datasets(cfg, model_base, actadd_fwd_pre_hooks, actadd_fwd_hooks, 'actadd')
 
 if __name__ == "__main__":
