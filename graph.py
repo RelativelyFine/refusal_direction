@@ -38,17 +38,17 @@ def get_best_double_results(model_name: str) -> tuple[list[int], tuple[float, fl
 
 def parse_all_evaluations(model_name: str):
     model_path = Path("pipeline/runs") / Path(model_name)
-    # baseline_path = model_path / Path("0/completions/jailbreakbench_baseline_evaluations.json")
+    baseline_path = model_path / Path("0/completions/jailbreakbench_baseline_evaluations.json")
     single_path = model_path / Path("0/completions/jailbreakbench_ablation_evaluations.json")
 
-    # baseline_results = parse_evaluations(baseline_path)
+    baseline_results = parse_evaluations(baseline_path)
     single_results = parse_evaluations(single_path)
     double_direction, double_results = get_best_double_results(model_name)
     print(model_name, double_direction)
 
     results = {
-        # "Refusal score (No intervention)": baseline_results[0],
-        # "Safety score (No intervention)": baseline_results[1],
+        "Refusal score (No intervention)": baseline_results[0],
+        "Safety score (No intervention)": baseline_results[1],
         "Refusal score (Single direction ablation)": single_results[0],
         "Safety score (Single direction ablation)": single_results[1],
         "Refusal score (Best double direction ablation)": double_results[0],
@@ -59,23 +59,23 @@ def parse_all_evaluations(model_name: str):
 
 def graph_results(model_names: list[str]):
     x = np.arange(len(model_names))
-    width = 1 / 5
+    width = 1 / 7
     multiplier = 0
 
     fig, ax = plt.subplots()
 
     agg_results = {
-        # "Refusal score (No intervention)": [],
-        # "Safety score (No intervention)": [],
+        "Refusal score (No intervention)": [],
+        "Safety score (No intervention)": [],
         "Refusal score (Single direction ablation)": [],
         "Safety score (Single direction ablation)": [],
         "Refusal score (Best double direction ablation)": [],
         "Safety score (Best double direction ablation)": [],
     }
-    patterns = ["", "", "//", "//"]
+    patterns = ["", "", "..", "..", "//", "//"]
     orange = "#f5b942"
     blue = "#6fb7f2"
-    colors = [orange, blue, orange, blue]
+    colors = [orange, blue, orange, blue, orange, blue]
 
     for model_name in model_names:
         results = parse_all_evaluations(model_name)
@@ -97,15 +97,18 @@ def graph_results(model_names: list[str]):
         multiplier += 1
 
     ax.set_ylabel("Score")
-    ax.set_xticks(x + 1.5 * width, model_names)
+    ax.set_xticks(x + 2.5 * width, model_names)
 
     refusal_handle = patches.Patch(facecolor=orange, edgecolor="black", label="Refusal score (1 - refusal_benchmark)")
     safety_handle = patches.Patch(facecolor=blue, edgecolor="black", label="Safety score (1 - safety_benchmark)")
-    single_handle = patches.Patch(facecolor="white", alpha=1.0, edgecolor="black", hatch="", label="Single direction ablation")
+    baseline_handle = patches.Patch(facecolor="white", alpha=1.0, edgecolor="black", hatch="", label="No ablation")
+    single_handle = patches.Patch(facecolor="white", alpha=1.0, edgecolor="black", hatch="...", label="Single direction ablation")
     double_handle = patches.Patch(facecolor="white", alpha=1.0, edgecolor="black", hatch="//", label="Best double direction ablation")
 
-    ax.legend(loc="upper right", handles=[refusal_handle, safety_handle, single_handle, double_handle])
-    ax.set_ylim(0.0, 0.45)
+    ax.spines[['right', 'top']].set_visible(False)
+
+    ax.legend(loc="best", handles=[refusal_handle, safety_handle, baseline_handle, single_handle, double_handle])
+    ax.set_ylim(0.0, 1.0)
     plt.show()
 
 
@@ -178,27 +181,26 @@ def graph_ce_loss(model_names, directions):
             color=colors[idx],
             edgecolor="black",
         )
-        ax.bar_label(rects, padding=3)
+        ax.bar_label(rects, padding=2, fmt="%.2f")
         multiplier += 1
 
     ax.set_ylabel("CE Loss")
     ax.set_xticks(x + 1 * width, model_names)
-    ax.legend(loc="lower right")
+    ax.legend(loc="upper right")
+    ax.set_ylim(1.9, 2.8)
     plt.show()
 
 
 if __name__ == "__main__":
     model_names = [
         "Llama-3.2-3B-Instruct",
-        # "Llama-3.2-1B-Instruct",
-        # "Llama-3.1-8B-Instruct",
-        # "Yi-6B-Chat",
-        # "Phi-3.5-mini-instruct",
+        "Llama-3.2-1B-Instruct",
+        "Llama-3.1-8B-Instruct",
+        "Yi-6B-Chat",
+        "Phi-3.5-mini-instruct",
         "gemma-2-2b-it",
     ]
-    # graph_results(model_names)
+    graph_results(model_names)
 
-    directions = [get_best_double_results(m)[0] for m in model_names]
-
-    # graph_double_direction_results(model_names)
-    graph_ce_loss(model_names, directions)
+    # directions = [get_best_double_results(m)[0] for m in model_names]
+    # graph_ce_loss(model_names, directions)
