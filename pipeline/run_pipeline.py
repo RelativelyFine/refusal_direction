@@ -18,11 +18,13 @@ from pipeline.submodules.evaluate_loss import evaluate_loss
 
 from dotenv import load_dotenv
 
+
 def parse_arguments():
     """Parse model path argument from command line."""
     parser = argparse.ArgumentParser(description="Parse model path argument.")
     parser.add_argument('--model_path', type=str, required=True, help='Path to the model')
     return parser.parse_args()
+
 
 def load_and_sample_datasets(cfg):
     """
@@ -37,6 +39,7 @@ def load_and_sample_datasets(cfg):
     harmful_val = random.sample(load_dataset_split(harmtype='harmful', split='val', instructions_only=True), cfg.n_val)
     harmless_val = random.sample(load_dataset_split(harmtype='harmless', split='val', instructions_only=True), cfg.n_val)
     return harmful_train, harmless_train, harmful_val, harmless_val
+
 
 def filter_data(cfg, model_base, harmful_train, harmless_train, harmful_val, harmless_val):
     """
@@ -61,20 +64,22 @@ def filter_data(cfg, model_base, harmful_train, harmless_train, harmful_val, har
         harmful_val = filter_examples(harmful_val, harmful_val_scores, 0, lambda x, y: x > y)
         print("123123", harmful_val)
         harmless_val = filter_examples(harmless_val, harmless_val_scores, 0, lambda x, y: x < y)
-    
+
     return harmful_train, harmless_train, harmful_val, harmless_val
+
 
 def load_or_generate_candidate_directions(cfg, model_base, harmful_train, harmless_train):
     candidate_directions_path = os.path.join(cfg.artifact_path(), 'generate_directions/mean_diffs.pt')
-    
+
     if os.path.exists(candidate_directions_path):
         print("Loading existing candidate directions")
         mean_diffs = torch.load(candidate_directions_path)
     else:
         print("Generating new candidate directions")
         mean_diffs = generate_and_save_candidate_directions(cfg, model_base, harmful_train, harmless_train)
-    
+
     return mean_diffs
+
 
 def generate_and_save_candidate_directions(cfg, model_base, harmful_train, harmless_train):
     """Generate and save candidate directions."""
@@ -91,13 +96,14 @@ def generate_and_save_candidate_directions(cfg, model_base, harmful_train, harml
 
     return mean_diffs
 
+
 def select_and_save_direction(cfg, model_base, harmful_val, harmless_val, candidate_directions):
     """Select and save the direction with caching of intermediate results."""
     direction_metadata_path = f'{cfg.artifact_path()}/direction_metadata.json'
     direction_path = f'{cfg.artifact_path()}/direction.pt'
     evaluations_path = os.path.join(cfg.artifact_path(), 'select_direction/direction_evaluations.json')
     evaluations_filtered_path = os.path.join(cfg.artifact_path(), 'select_direction/direction_evaluations_filtered.json')
-    
+
     # Check if final results already exist
     if os.path.exists(direction_metadata_path) and os.path.exists(direction_path):
         print("Loading previously selected direction and metadata")
@@ -105,35 +111,35 @@ def select_and_save_direction(cfg, model_base, harmful_val, harmless_val, candid
             metadata = json.load(f)
         direction = torch.load(direction_path)
         return metadata["pos"], metadata["layer"], direction
-    
+
     # Create select_direction directory if it doesn't exist
     if not os.path.exists(os.path.join(cfg.artifact_path(), 'select_direction')):
         os.makedirs(os.path.join(cfg.artifact_path(), 'select_direction'))
-    
+
     # Check if evaluations exist
     if os.path.exists(evaluations_path) and os.path.exists(evaluations_filtered_path):
         print("Loading previous direction evaluations")
         with open(evaluations_filtered_path, "r") as f:
             filtered_evaluations = json.load(f)
-        
+
         if filtered_evaluations:  # Check if there are any filtered results
             # Get the best direction from filtered evaluations (sorted by refusal_score ascending)
-            best_direction = filtered_evaluations[0] # XXX This is the best_direction
+            best_direction = filtered_evaluations[0]
             pos, layer = best_direction["position"], best_direction["layer"]
             direction = candidate_directions[pos, layer]
-            
+
             # Save results
             with open(direction_metadata_path, "w") as f:
                 json.dump({"pos": pos, "layer": layer}, f, indent=4)
             torch.save(direction, direction_path)
-            
+
             print(f"Selected direction from cached evaluations: position={pos}, layer={layer}")
             print(f"Refusal score: {best_direction['refusal_score']:.4f}")
             print(f"Steering score: {best_direction['steering_score']:.4f}")
             print(f"KL Divergence: {best_direction['kl_div_score']:.4f}")
-            
+
             return pos, layer, direction
-    
+
     print("No cached results found, running full direction selection")
     # Run full selection process
     pos, layer, direction = select_direction(
@@ -151,33 +157,25 @@ def select_and_save_direction(cfg, model_base, harmful_val, harmless_val, candid
 
     return pos, layer, direction
 
+
 def select_and_save_multiple_directions(cfg, model_base, harmful_val, harmless_val, candidate_directions, ranked_direction_idxs, use_parent_dir_for_evals=False):
     """Select and save the direction with caching of intermediate results."""
     direction_metadata_path = f'{cfg.artifact_path()}/directions_metadata.json'
     direction_path = f'{cfg.artifact_path()}/directions.pt'
-    
+
     if not use_parent_dir_for_evals:
         evaluations_path = os.path.join(cfg.artifact_path(), 'select_direction/direction_evaluations.json')
         evaluations_filtered_path = os.path.join(cfg.artifact_path(), 'select_direction/direction_evaluations_filtered.json')
     else:
         evaluations_path = os.path.join(os.path.pardir, cfg.artifact_path(), 'select_direction/direction_evaluations.json')
         evaluations_filtered_path = os.path.join(os.path.pardir, cfg.artifact_path(), 'select_direction/direction_evaluations_filtered.json')
-    
-    # Check if final results already exist
-    # print("Loading previously selected direction and metadata disabled for directions")
-    # if os.path.exists(direction_metadata_path) and os.path.exists(direction_path):
-    #     print("Loading previously selected direction and metadata")
-    #     with open(direction_metadata_path, "r") as f:
-    #         metadata = json.load(f)
-    #     direction = torch.load(direction_path)
-    #     return metadata["pos"], metadata["layer"], direction
-    
+
     # Create select_direction directory if it doesn't exist
     if not os.path.exists(os.path.join(cfg.artifact_path(), 'select_direction')):
         os.makedirs(os.path.join(cfg.artifact_path(), 'select_direction'))
-    
+
     # Check if evaluations exist
-    if not(os.path.exists(evaluations_path) and os.path.exists(evaluations_filtered_path)):
+    if not (os.path.exists(evaluations_path) and os.path.exists(evaluations_filtered_path)):
         select_direction(
             model_base,
             harmful_val,
@@ -188,7 +186,7 @@ def select_and_save_multiple_directions(cfg, model_base, harmful_val, harmless_v
     print("Loading previous direction evaluations")
     with open(evaluations_filtered_path, "r") as f:
         filtered_evaluations = json.load(f)
-    
+
     selected_directions = []
     directions_metadata = []
     directions = []
@@ -199,99 +197,26 @@ def select_and_save_multiple_directions(cfg, model_base, harmful_val, harmless_v
             pos = best_direction["position"]
             layer = best_direction["layer"]
             direction = candidate_directions[pos, layer]
-            
+
             directions_metadata.append({"pos": pos, "layer": layer})
             directions.append(direction)
-            
+
             print(f"Selected direction ranked {idx} from cached evaluations:")
-            print(f"Direction 1: position={pos}, layer={layer}, refusal score={best_direction['refusal_score']:.4f}, steering score={best_direction['steering_score']:.4f}, kl divergence={best_direction['kl_div_score']:.4f}")
+            print(f"Direction {idx}: position={pos}, layer={layer}, refusal score={
+                    best_direction['refusal_score']:.4f
+                }, steering score={
+                    best_direction['steering_score']:.4f
+                }, kl divergence={best_direction['kl_div_score']:.4f}")
 
             selected_directions.append((pos, layer, direction))
-
 
     # Save results
     with open(direction_metadata_path, "w") as f:
         json.dump(directions_metadata, f, indent=4)
     torch.save(directions, direction_path)
-    
+
     return selected_directions
 
-
-# def select_and_save_two_directions(cfg, model_base, harmful_val, harmless_val, candidate_directions, use_parent_dir_for_evals=False):
-#     """Select and save the direction with caching of intermediate results."""
-#     direction_metadata_path = f'{cfg.artifact_path()}/direction_metadata.json'
-#     direction_path = f'{cfg.artifact_path()}/direction.pt'
-#     if not use_parent_dir_for_evals:
-#         evaluations_path = os.path.join(cfg.artifact_path(), 'select_direction/direction_evaluations.json')
-#         evaluations_filtered_path = os.path.join(cfg.artifact_path(), 'select_direction/direction_evaluations_filtered.json')
-#     else:
-#         evaluations_path = os.path.join(os.path.pardir, cfg.artifact_path(), 'select_direction/direction_evaluations.json')
-#         evaluations_filtered_path = os.path.join(os.path.pardir, cfg.artifact_path(), 'select_direction/direction_evaluations_filtered.json')
-    
-#     # Check if final results already exist
-#     print("Loading previously selected direction and metadata disabled for two directions")
-#     # if os.path.exists(direction_metadata_path) and os.path.exists(direction_path):
-#     #     print("Loading previously selected direction and metadata")
-#     #     with open(direction_metadata_path, "r") as f:
-#     #         metadata = json.load(f)
-#     #     direction = torch.load(direction_path)
-#     #     return metadata["pos"], metadata["layer"], direction
-    
-#     # Create select_direction directory if it doesn't exist
-#     if not os.path.exists(os.path.join(cfg.artifact_path(), 'select_direction')):
-#         os.makedirs(os.path.join(cfg.artifact_path(), 'select_direction'))
-    
-#     # Check if evaluations exist
-#     if not(os.path.exists(evaluations_path) and os.path.exists(evaluations_filtered_path)):
-#         select_direction(
-#             model_base,
-#             harmful_val,
-#             harmless_val,
-#             candidate_directions,
-#             artifact_dir=os.path.join(cfg.artifact_path(), "select_direction")
-#         )
-#     print("Loading previous direction evaluations")
-#     with open(evaluations_filtered_path, "r") as f:
-#         filtered_evaluations = json.load(f)
-    
-#     if filtered_evaluations:  # Check if there are any filtered results
-#         # Get the best direction from filtered evaluations (sorted by refusal_score ascending)
-#         best_direction = filtered_evaluations[:2]
-
-#         pos1, layer1= best_direction[0]["position"], best_direction[0]["layer"]
-#         pos2, layer2 = best_direction[1]["position"], best_direction[1]["layer"]
-#         direction1 = candidate_directions[pos1, layer1]
-#         direction2 = candidate_directions[pos2, layer2]
-        
-#         # Save results
-#         with open(direction_metadata_path, "w") as f:
-#             json.dump({"pos1": pos1, "layer1": layer1, "pos2": pos2, "layer2": layer2}, f, indent=4)
-#         torch.save([direction1, direction2], direction_path)
-        
-#         print(f"Selected direction from cached evaluations:")
-#         print(f"Direction 1: position={pos1}, layer={layer1}, refusal score={best_direction[0]['refusal_score']:.4f}, steering score={best_direction[0]['steering_score']:.4f}, kl divergence={best_direction[0]['kl_div_score']:.4f}")
-#         print(f"Direction 2: position={pos2}, layer={layer2}, refusal score={best_direction[1]['refusal_score']:.4f}, steering score={best_direction[1]['steering_score']:.4f}, kl divergence={best_direction[1]['kl_div_score']:.4f}")
-
-#         return [(pos1, layer1, direction1), (pos2, layer2, direction2)]
-            
-            
-#     raise RuntimeError("No filtered results found")
-#     # print("No cached results found, running full direction selection")
-#     # # Run full selection process
-#     # pos, layer, direction = select_direction(
-#     #     model_base,
-#     #     harmful_val,
-#     #     harmless_val,
-#     #     candidate_directions,
-#     #     artifact_dir=os.path.join(cfg.artifact_path(), "select_direction")
-#     # )
-
-#     # # Save results
-#     # with open(direction_metadata_path, "w") as f:
-#     #     json.dump({"pos": pos, "layer": layer}, f, indent=4)
-#     # torch.save(direction, direction_path)
-
-#     # return pos, layer, direction
 
 def generate_and_save_completions_for_dataset(cfg, model_base, fwd_pre_hooks, fwd_hooks, intervention_label, dataset_name, dataset=None):
     """Generate and save completions for a dataset."""
@@ -302,9 +227,10 @@ def generate_and_save_completions_for_dataset(cfg, model_base, fwd_pre_hooks, fw
         dataset = load_dataset(dataset_name)
 
     completions = model_base.generate_completions(dataset, fwd_pre_hooks=fwd_pre_hooks, fwd_hooks=fwd_hooks, max_new_tokens=cfg.max_new_tokens)
-    
+
     with open(f'{cfg.artifact_path()}/completions/{dataset_name}_{intervention_label}_completions.json', "w") as f:
         json.dump(completions, f, indent=4)
+
 
 def evaluate_completions_and_save_results_for_dataset(cfg, intervention_label, dataset_name, eval_methodologies):
     """Evaluate completions and save results for a dataset."""
@@ -320,6 +246,7 @@ def evaluate_completions_and_save_results_for_dataset(cfg, intervention_label, d
     with open(f'{cfg.artifact_path()}/completions/{dataset_name}_{intervention_label}_evaluations.json', "w") as f:
         json.dump(evaluation, f, indent=4)
 
+
 def evaluate_loss_for_datasets(cfg, model_base, fwd_pre_hooks, fwd_hooks, intervention_label):
     """Evaluate loss on datasets."""
     if not os.path.exists(os.path.join(cfg.artifact_path(), 'loss_evals')):
@@ -332,10 +259,9 @@ def evaluate_loss_for_datasets(cfg, model_base, fwd_pre_hooks, fwd_hooks, interv
     with open(f'{cfg.artifact_path()}/loss_evals/{intervention_label}_loss_eval.json', "w") as f:
         json.dump(loss_evals, f, indent=4)
 
+
 def run_pipeline(model_path):
     """Run the full pipeline."""
-    MAX_CANDIDATE_IDX = 9
-    
     model_alias = os.path.basename(model_path)
     cfg = Config(model_alias=model_alias, model_path=model_path)
 
@@ -343,37 +269,26 @@ def run_pipeline(model_path):
 
     # Load and sample datasets
     harmful_train, harmless_train, harmful_val, harmless_val = load_and_sample_datasets(cfg)
-    
-    # print(harmful_val)
 
     # Filter datasets based on refusal scores
     harmful_train, harmless_train, harmful_val, harmless_val = filter_data(cfg, model_base, harmful_train, harmless_train, harmful_val, harmless_val)
 
-    
-
     # 1. Generate candidate refusal directions
     candidate_directions = load_or_generate_candidate_directions(cfg, model_base, harmful_train, harmless_train)
-    
+
     # 2. Select the most effective refusal direction
     # _pos, layer, direction = select_and_save_direction(cfg, model_base, harmful_val, harmless_val, candidate_directions) # XXX Make new function that returns x directions
-    
+
     direction_idxs_combinations = list(combinations(range(len(candidate_directions)), 2))
-    
+
     direction_idxs_combinations.insert(0, (0,))
 
     direction_idxs_combinations = [(0,)]
 
     for ranked_direction_idxs in direction_idxs_combinations:
-        # Skip if the folder exists
-        # folder_path = os.path.join(cfg.artifact_path(), "-".join(map(str, ranked_direction_idxs)))
-        # if os.path.exists(folder_path):
-        #     print(f"Skipping directions ranked_direction_idxs, folder already exists.")
-        #     continue
-
         print(f"Evaluating directions #{ranked_direction_idxs}")
         cfg.vectors_ablated = "-".join(map(str, ranked_direction_idxs))
         selected_directions = select_and_save_multiple_directions(cfg, model_base, harmful_val, harmless_val, candidate_directions, ranked_direction_idxs)
-        # (pos1, layer1, direction1), (pos2, layer2, direction2) = select_and_save_two_directions(cfg, model_base, harmful_val, harmless_val, candidate_directions) # XXX Make new function that returns x directions
 
         baseline_fwd_pre_hooks, baseline_fwd_hooks = [], []
         ablation_fwd_pre_hooks, ablation_fwd_hooks = [], []
@@ -381,11 +296,6 @@ def run_pipeline(model_path):
             dir_ablation_fwd_pre_hooks, dir_ablation_fwd_hooks = get_all_direction_ablation_hooks(model_base, direction)
             ablation_fwd_pre_hooks += dir_ablation_fwd_pre_hooks
             ablation_fwd_hooks += dir_ablation_fwd_hooks
-        # ablation_fwd_pre_hooks1, ablation_fwd_hooks1 = get_all_direction_ablation_hooks(model_base, direction1) # XXX
-        # ablation_fwd_pre_hooks2, ablation_fwd_hooks2 = get_all_direction_ablation_hooks(model_base, direction2) # XXX
-        # ablation_fwd_pre_hooks = ablation_fwd_pre_hooks1 + ablation_fwd_pre_hooks2
-        # ablation_fwd_hooks = ablation_fwd_hooks1 + ablation_fwd_hooks2
-        # actadd_fwd_pre_hooks, actadd_fwd_hooks = [(model_base.model_block_modules[layer], get_activation_addition_input_pre_hook(vector=direction, coeff=-1.0))], []
 
         # 3a. Generate and save completions on harmful evaluation datasets
         for dataset_name in cfg.evaluation_datasets:
@@ -400,12 +310,12 @@ def run_pipeline(model_path):
             # evaluate_completions_and_save_results_for_dataset(cfg, 'ablation', dataset_name, eval_methodologies=cfg.jailbreak_eval_methodologies)
             # evaluate_completions_and_save_results_for_dataset(cfg, 'actadd', dataset_name, eval_methodologies=cfg.jailbreak_eval_methodologies)
             pass
-        
+
         # 4a. Generate and save completions on harmless evaluation dataset
         harmless_test = random.sample(load_dataset_split(harmtype='harmless', split='test'), cfg.n_test)
 
         generate_and_save_completions_for_dataset(cfg, model_base, baseline_fwd_pre_hooks, baseline_fwd_hooks, 'baseline', 'harmless', dataset=harmless_test)
-        
+
         # actadd_refusal_pre_hooks, actadd_refusal_hooks = [(model_base.model_block_modules[layer], get_activation_addition_input_pre_hook(vector=direction, coeff=+1.0))], []
         # generate_and_save_completions_for_dataset(cfg, model_base, actadd_refusal_pre_hooks, actadd_refusal_hooks, 'actadd', 'harmless', dataset=harmless_test)
 
@@ -417,6 +327,7 @@ def run_pipeline(model_path):
         evaluate_loss_for_datasets(cfg, model_base, baseline_fwd_pre_hooks, baseline_fwd_hooks, 'baseline')
         evaluate_loss_for_datasets(cfg, model_base, ablation_fwd_pre_hooks, ablation_fwd_hooks, 'ablation')
         # evaluate_loss_for_datasets(cfg, model_base, actadd_fwd_pre_hooks, actadd_fwd_hooks, 'actadd')
+
 
 if __name__ == "__main__":
     load_dotenv()
