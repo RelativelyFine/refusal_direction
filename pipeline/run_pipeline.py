@@ -276,20 +276,17 @@ def run_pipeline(model_path):
     # 1. Generate candidate refusal directions
     candidate_directions = load_or_generate_candidate_directions(cfg, model_base, harmful_train, harmless_train)
 
-    # 2. Select the most effective refusal direction
-    # _pos, layer, direction = select_and_save_direction(cfg, model_base, harmful_val, harmless_val, candidate_directions) # XXX Make new function that returns x directions
-
+    # Create a list containing 0 and every pair of candidate_direction indices
     direction_idxs_combinations = list(combinations(range(len(candidate_directions)), 2))
-
     direction_idxs_combinations.insert(0, (0,))
-
-    direction_idxs_combinations = [(0,)]
 
     for ranked_direction_idxs in direction_idxs_combinations:
         print(f"Evaluating directions #{ranked_direction_idxs}")
         cfg.vectors_ablated = "-".join(map(str, ranked_direction_idxs))
+        # 2. Select the directions with specified refusal direction ranks
         selected_directions = select_and_save_multiple_directions(cfg, model_base, harmful_val, harmless_val, candidate_directions, ranked_direction_idxs)
 
+        # Accumulate the hooks for each selected direction
         baseline_fwd_pre_hooks, baseline_fwd_hooks = [], []
         ablation_fwd_pre_hooks, ablation_fwd_hooks = [], []
         for _pos, _layer, direction in selected_directions:
