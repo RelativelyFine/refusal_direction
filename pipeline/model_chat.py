@@ -1,3 +1,7 @@
+"""
+Before running this program a chat model needs to be run through the pipeline
+to find the model's ablation directions.
+"""
 import os
 import argparse
 import torch
@@ -20,7 +24,7 @@ def get_ablation_direction(cfg):
         print("Loading previously selected direction and metadata")
         direction = torch.load(direction_path)
         return direction
-    raise FileNotFoundError()
+    raise RuntimeError("Failed to find 'directions.pt', has the model been run through the pipeline?")
 
 
 def chat(model_path, vectors_ablated):
