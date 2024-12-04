@@ -79,7 +79,7 @@ fi
 
 setup_hf
 setup_together
-# setup_venv
-# install_requirements
+setup_venv
+install_requirements
 
 echo "All set up!"

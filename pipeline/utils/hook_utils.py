@@ -1,4 +1,10 @@
+"""
+Utility function for adding hooks to models
 
+See https://pytorch.org/docs/stable/generated/torch.nn.modules.module.register_module_forward_hook.html
+and https://pytorch.org/docs/stable/generated/torch.nn.modules.module.register_module_forward_pre_hook.html
+for more details on how these work.
+"""
 import torch
 import contextlib
 import functools
