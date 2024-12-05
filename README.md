@@ -14,6 +14,8 @@ source setup.sh
 The setup script will prompt you for a HuggingFace token (required to access gated models) and a Together AI token (required to access the Together AI API, which is used for evaluating jailbreak safety scores).
 It will then set up a virtual environment and install the required packages.
 
+Note: You will need python 3.11 running in a unix environment.
+
 ## Reproducing main results
 
 To reproduce the main results from the paper, run the following command:
