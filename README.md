@@ -3,6 +3,8 @@
 This repository extends the work done by 
 [Refusal in Language Models Is Mediated by a Single Direction](https://github.com/andyrdt/refusal_direction)
 
+This is an experimental project for testing if refusal is better mediated in multiple directions rather than one. We obtained results that show that refusal is indeed better mediated in two directions, but these directions are not nessasarily the top two candidate vectors. CE Loss showed a minor decrease.
+
 ## Setup
 
 ```bash
